@@ -2,6 +2,8 @@ import pandas as pd, torch, torchvision
 import os 
 import core
 import cv2
+# from torch.utils.data import Dataset
+# from torch.utils.data import DataLoader
 
 
 def generate_dataset_csv(folder_path: str, save_path: str=None):
@@ -50,7 +52,8 @@ def read_one_signal(file_path: str,
         :param torch.Tensor: shape is [channel, 1D data]
     """
     img = cv2.imread(file_path, cv2.IMREAD_UNCHANGED)
-    img_tensor = trans(img) # dtype == float32
+    img_tensor = torch.tensor(img, dtype=torch.float32)
+    # img_tensor = trans(img) # dtype == float32
     return img_tensor
 
 def read_one_target(target_value: int,
@@ -68,11 +71,13 @@ def read_one_target(target_value: int,
 
 class DiyDataset(torch.utils.data.Dataset, core.HyperParameters):
     def __init__(self, 
-                 root: str,
                  train: bool,
-                 download: bool, 
                  transform: object,
-                 data_csv_path: str):
+                 data_csv_path: str,
+                 download: bool=False, 
+                 root: str="./",
+                 ):
+        super().__init__()
         df_data = pd.read_csv(data_csv_path)
         self.signals = df_data.loc[:, "signal_path"].tolist()
         self.targets = df_data.loc[:, "target_value"].tolist()
@@ -80,13 +85,13 @@ class DiyDataset(torch.utils.data.Dataset, core.HyperParameters):
         pass
 
     def __getitem__(self, index):
-        self.signal = read_one_signal(self.signals[index], self.trans)
-        self.target = read_one_target(self.targets[index], self.trans)
-        return self.signal, self.target
+        signal = read_one_signal(self.signals[index], self.trans)
+        target = read_one_target(self.targets[index], self.trans)
+        return signal, target
         pass
 
     def __len__(self):
-        len(self.targets)
+        return len(self.signals)
         pass
 
 
@@ -98,7 +103,10 @@ if __name__=="__main__":
     trans = torchvision.transforms.Compose([torchvision.transforms.ToTensor(),
                                             ])
     dataset = DiyDataset(train=True, transform=trans, data_csv_path=data_csv_path)
-    dataset[0]
+    a, b = dataset[0]
+    print(a.shape, a.dtype, b.shape, b.dtype)
 
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=1)
+    print(next(iter(dataloader)))
 
     pass

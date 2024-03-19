@@ -1,3 +1,47 @@
+## x.1 Usage
+
+
+文件组织形式如下：
+
+```
+Data
+|----FTIR
+      |---- 1_data_mapping.csv
+      |---- 1
+            |---- G-actin_1.dat
+            |---- G-actin_2.dat
+            |---- ...
+      |---- 2
+            |---- F-actin_1.dat
+            |---- F-actin_2.dat
+            |---- ...
+      |---- ...  
+```
+
+原始数据存放在FTIR下面，具有多个类别，文件名1, 2, ...就是类别标签target；该类别下具有多种文件，如G-actin_1.dat就是signal；signal和target是一一对应的关系；
+
+但是增加了一种新的自动化划分脚本，当你的文件命名为`xxx_target1_.dat`会自动根据`target1`将类别分为1等...
+
+使用`core1.1.py`便可以成功运行
+
+1. 先运行`preprocess.py`再运行`ResNet.py`就行
+
+
+## x.2 工作日志
+
+0319
+
+已经完成，但是有更多的部分等待后面完成，包括多种指标，多种loss，将train和validation部分分离等。
+
+
+
+3. 代码书写
+
+- BCE Loss 用的是Long, 参考`https://blog.csdn.net/BetrayFree/article/details/133927378`
+
+
+
+---
 
 20240318
 
@@ -15,6 +59,7 @@
 
 
 
+
 4. 展望
 
 - 现在loss很大，期望增加预处理阶段，只提取需要的波数的数据，将数据堆叠成.npy数据格式；再根据npy数据格式求出一些统计值如均值，方差，对整个数据集归一化；
@@ -27,4 +72,5 @@
 - 期望使用.yml修改参数；
 - 期望将代码重构为包含Trainer的格式；
 - 期望代码能够使用importlib自动导入网络模型；
+- `tqdm`, `seaborn`
 
