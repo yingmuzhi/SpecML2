@@ -119,10 +119,16 @@ def find_dat_files(directory):
                 file_names.append(file[:-4])
     return dat_files, file_names
 
-def generate_multi_100pixel_pic(files_path: str):
+def generate_multi_100pixel_pic(files_path: str, save_path: str):
     origin_data = os.path.join(files_path, "data")
     dat_files, file_names = find_dat_files(files_path)
     for index, data_path in enumerate(dat_files):
+        # 检查目录是否存在
+        if not os.path.exists(save_path):
+            # 如果目录不存在，则创建目录
+            os.makedirs(save_path)
+            print("目录已创建")
+
         pic_path = os.path.join(files_path, 'temp', file_names[index]+".png")
         resize_path = pic_path
         crop_path = os.path.join(files_path, 'crop', file_names[index]+'.png')
@@ -163,14 +169,28 @@ def generate_target(directory, save_path):
     return         
 
 
+# 第一步：注释掉第二步，运行第一步; 用于生成crop2文件夹
 if __name__ == "__main__":
+    directory = "/home/yingmuzhi/SpecML2/data/crop"
     files_path = "/home/yingmuzhi/SpecML2/data"
-    generate_multi_100pixel_pic(files_path)
+    generate_multi_100pixel_pic(files_path, directory)
 
     directory = "/home/yingmuzhi/SpecML2/data/crop"
     save_path = "/home/yingmuzhi/SpecML2/data/crop2"
     generate_target(directory, save_path)
 
+
+# 第二步：注释掉第一步，运行第二步; 将生成的crop2文件夹分别改名成train和val文件夹; 下面这步是在train和val文件夹中创建.csv文件; 这一步骤中是根据文件名来生成target标签
+# if __name__=="__main__":
+#     from dataset_utils import *
+
+#     folder_path = "/home/yingmuzhi/SpecML2/data/train"
+#     save_path = None
+#     data_csv_path = generate_dataset_csv(folder_path=folder_path, save_path=save_path)
+
+#     folder_path = "/home/yingmuzhi/SpecML2/data/val"
+#     save_path = None
+#     data_csv_path = generate_dataset_csv(folder_path=folder_path, save_path=save_path)
     
 
     

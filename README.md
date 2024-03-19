@@ -22,7 +22,7 @@ Data
 
 但是增加了一种新的自动化划分脚本，当你的文件命名为`xxx_target1_.dat`会自动根据`target1`将类别分为1等...
 
-使用`core1.1.py`便可以成功运行
+使用`core1.2.py`便可以成功运行
 
 1. 先运行`preprocess.py`再运行`ResNet.py`就行
 
@@ -34,12 +34,11 @@ Data
 已经完成，但是有更多的部分等待后面完成，包括多种指标，多种loss，将train和validation部分分离等。
 
 
-
 3. 代码书写
 
 - BCE Loss 用的是Long, 参考`https://blog.csdn.net/BetrayFree/article/details/133927378`
-
-
+- numpy读取图片格式(h, w, c) -> torch(c, h, w)
+- 将图片改为单张图片归一化\(虽然不严谨\)
 
 ---
 

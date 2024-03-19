@@ -2,9 +2,49 @@ import pandas as pd, torch, torchvision
 import os 
 import core
 import cv2
+import numpy as np
 # from torch.utils.data import Dataset
 # from torch.utils.data import DataLoader
 
+class DataM(core.DataModule):
+    """The Fashion-MNIST dataset."""
+    def __init__(self, batch_size=64, resize=(28, 28), download=False, root="/home/yingmuzhi/_learning/d2l/data",
+                 data_csv_path="/home/yingmuzhi/SpecML2/data/crop2/1_data_mapping.csv",
+                 num_workers=0):
+        super().__init__()
+        self.save_hyperparameters()
+        # trans = transforms.Compose([transforms.Resize(resize),
+        #                             transforms.ToTensor()])
+        trans = None
+        # train_set
+        data_csv_path = "/home/yingmuzhi/SpecML2/data/train/1_data_mapping.csv"
+        self.train = DiyDataset(
+            root=self.root, train=True, transform=trans, download=download, data_csv_path=data_csv_path)
+        # validation_set
+        data_csv_path = "/home/yingmuzhi/SpecML2/data/val/1_data_mapping.csv"
+        self.val = DiyDataset(
+            root=self.root, train=False, transform=trans, download=download, data_csv_path=data_csv_path)
+
+    def text_labels(self, indices):
+        """Return text labels.
+    
+        Defined in :numref:`sec_fashion_mnist`"""
+        labels = ['t-shirt', 'trouser', 'pullover', 'dress', 'coat',
+                  'sandal', 'shirt', 'sneaker', 'bag', 'ankle boot']
+        return [labels[int(i)] for i in indices]
+
+    def get_dataloader(self, train):
+        """Defined in :numref:`sec_fashion_mnist`"""
+        data = self.train if train else self.val
+        return torch.utils.data.DataLoader(data, self.batch_size, shuffle=train,
+                                           num_workers=self.num_workers)
+
+    def visualize(self, batch, nrows=1, ncols=8, labels=[]):
+        """Defined in :numref:`sec_fashion_mnist`"""
+        X, y = batch
+        if not labels:
+            labels = self.text_labels(y)
+        show_images(X.squeeze(1), nrows, ncols, titles=labels)
 
 def generate_dataset_csv(folder_path: str, save_path: str=None):
     """
@@ -52,9 +92,18 @@ def read_one_signal(file_path: str,
         :param torch.Tensor: shape is [channel, 1D data]
     """
     img = cv2.imread(file_path, cv2.IMREAD_UNCHANGED)
+
+    # normalize per pic
+    mean = np.mean(img)
+    std = np.std(img)
+    img = ( img - mean ) / std
+
     img_tensor = torch.tensor(img, dtype=torch.float32)
+    permuted_tensor = img_tensor.permute(2, 0, 1)
+
+    
     # img_tensor = trans(img) # dtype == float32
-    return img_tensor
+    return permuted_tensor
 
 def read_one_target(target_value: int,
                     trans,):
@@ -78,6 +127,7 @@ class DiyDataset(torch.utils.data.Dataset, core.HyperParameters):
                  root: str="./",
                  ):
         super().__init__()
+        self.save_hyperparameters()
         df_data = pd.read_csv(data_csv_path)
         self.signals = df_data.loc[:, "signal_path"].tolist()
         self.targets = df_data.loc[:, "target_value"].tolist()

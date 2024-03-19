@@ -1,3 +1,10 @@
+seed = 3407
+import random, numpy as np, torch
+random.seed(seed)
+np.random.seed(seed)
+torch.manual_seed(seed)
+torch.cuda.manual_seed(seed)
+
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -110,8 +117,12 @@ class DataM(core.DataModule):
         self.save_hyperparameters()
         trans = transforms.Compose([transforms.Resize(resize),
                                     transforms.ToTensor()])
+        # train_set
+        data_csv_path = "/home/yingmuzhi/SpecML2/data/train/1_data_mapping.csv"
         self.train = dataset_utils.DiyDataset(
             root=self.root, train=True, transform=trans, download=download, data_csv_path=data_csv_path)
+        # validation_set
+        data_csv_path = "/home/yingmuzhi/SpecML2/data/val/1_data_mapping.csv"
         self.val = dataset_utils.DiyDataset(
             root=self.root, train=False, transform=trans, download=download, data_csv_path=data_csv_path)
 
@@ -143,7 +154,7 @@ class DataM(core.DataModule):
 
 training
 """
-model = ResNet18(lr=0.01, num_classes=22)
+model = ResNet18(lr=0.01, num_classes=21)
 trainer = core.Trainer_GPU(max_epochs=10, num_gpus=1)
 data = DataM(batch_size=1, resize=(100, 100))
 model.apply_init([next(iter(data.get_dataloader(True)))[0]], core.init_cnn)
