@@ -1,5 +1,6 @@
 """
 调参主要是在`convert_one_data2pic`
+注意输出的是灰度图像
 """
 
 import matplotlib.pyplot as plt
@@ -15,12 +16,13 @@ def generate_one_100pixel_pic(data_path: str,
                               resize_path: str,
                               crop_path: str):
     convert_one_data2pic(data_path, pic_path)   # 300 * 300 is okay
-    # resize_pic(pic_path, resize_path)           # 224 * 224 is not okay, chage resize path
+    resize_pic(pic_path, resize_path)           # 224 * 224 is not okay, chage resize path
     crop_pic(resize_path, crop_path)
 
 
 def crop_pic(pic_path: str,
-             crop_path: str,):
+             crop_path: str,
+             cutting_pixel: int=256):
     # 读取图像文件
     img = cv2.imread(pic_path)
 
@@ -28,10 +30,11 @@ def crop_pic(pic_path: str,
     height, width, _ = img.shape
 
     # 计算裁剪的区域, 总大小100*100pixel
-    top = max(0, height // 2 - 50)
-    bottom = min(height, height // 2 + 50)
-    left = max(0, width // 2 - 50)
-    right = min(width, width // 2 + 50)
+    half = cutting_pixel / 2
+    top = max(0, height // 2 - half)
+    bottom = min(height, height // 2 + half)
+    left = max(0, width // 2 - half)
+    right = min(width, width // 2 + half)
 
     # 裁剪图像
     cropped_img = img[top:bottom, left:right]
@@ -46,7 +49,7 @@ def resize_pic(pic_path: str,
     img = cv2.imread(pic_path)
 
     # 调整图像大小为 224x224 像素
-    img_resized = cv2.resize(img, (100, 100), interpolation=cv2.INTER_AREA)  # 使用INTER_AREA插值方法
+    img_resized = cv2.resize(img, (256, 256), interpolation=cv2.INTER_AREA)  # 使用INTER_AREA插值方法
 
     # 保存调整大小后的图像
     cv2.imwrite(resize_path, img_resized)
@@ -130,9 +133,9 @@ def generate_multi_100pixel_pic(files_path: str, save_path: str):
             print("目录已创建")
 
         pic_path = os.path.join(files_path, 'temp', file_names[index]+".png")
-        resize_path = pic_path
+        resize_path = os.path.join(files_path, 'resize', file_names[index]+".png")
         crop_path = os.path.join(files_path, 'crop', file_names[index]+'.png')
-        generate_one_100pixel_pic(data_path, pic_path, pic_path, crop_path)
+        generate_one_100pixel_pic(data_path, pic_path, resize_path, crop_path)
 
 def generate_target(directory, save_path):
     # 文件绝对路径
@@ -169,7 +172,7 @@ def generate_target(directory, save_path):
     return         
 
 
-# 第一步：注释掉第二步，运行第一步; 这一步主要是根据targetxx生成target和文件名相映射的crop2文件夹
+# 第一步：注释掉第二步，运行第一步; 用于生成crop2文件夹
 if __name__ == "__main__":
     directory = "/home/yingmuzhi/SpecML2/data/crop"
     files_path = "/home/yingmuzhi/SpecML2/data"
@@ -184,11 +187,11 @@ if __name__ == "__main__":
 # if __name__=="__main__":
 #     from dataset_utils import *
 
-#     folder_path = "/home/yingmuzhi/SpecML2/data/train"
+#     folder_path = "/home/yingmuzhi/SpecML2/data/train_256"
 #     save_path = None
 #     data_csv_path = generate_dataset_csv(folder_path=folder_path, save_path=save_path)
 
-#     folder_path = "/home/yingmuzhi/SpecML2/data/val"
+#     folder_path = "/home/yingmuzhi/SpecML2/data/val_256"
 #     save_path = None
 #     data_csv_path = generate_dataset_csv(folder_path=folder_path, save_path=save_path)
     
