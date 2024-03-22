@@ -118,20 +118,8 @@ def read_one_target(target_value: int,
     return:
         :param torch.Tensor target:
     """
-    # img = cv2.imread(file_path, cv2.IMREAD_UNCHANGED)
-    img = cv2.imread(target_value, cv2.IMREAD_GRAYSCALE)
-
-    # normalize per pic
-    mean = np.mean(img)
-    std = np.std(img)
-    img = ( img - mean ) / std
-
-    img_tensor = torch.tensor(img, dtype=torch.float32).unsqueeze(0)
-    # permuted_tensor = img_tensor.permute(2, 0, 1)
-    permuted_tensor = img_tensor
-    
-    # img_tensor = trans(img) # dtype == float32
-    return permuted_tensor
+    target = torch.tensor(target_value, dtype=torch.float32).unsqueeze(0)
+    return target
 
 class DiyDataset(torch.utils.data.Dataset, core.HyperParameters):
     def __init__(self, 
@@ -145,8 +133,7 @@ class DiyDataset(torch.utils.data.Dataset, core.HyperParameters):
         self.save_hyperparameters()
         df_data = pd.read_csv(data_csv_path)
         self.signals = df_data.loc[:, "signal_path"].tolist()
-        self.targets = df_data.loc[:, "signal_path"].tolist()
-        # self.targets = df_data.loc[:, "target_value"].tolist()
+        self.targets = df_data.loc[:, "target_value"].tolist()
         self.trans = transform
         pass
 

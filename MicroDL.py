@@ -7,6 +7,7 @@ there has Big, Median and tiny net, depending on the numbers of parameters.
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import cv2
 
 def lambda_attention(input_tensor, channels):
     batch = input_tensor.shape[0]
@@ -154,6 +155,7 @@ class Generator(torch.nn.Module):
 
         self.ce_layer = torch.nn.Sequential(torch.nn.AdaptiveAvgPool2d((1, 1)), torch.nn.LazyConv2d(100, (1, 1)), torch.nn.Flatten(), torch.nn.LazyLinear(21))
 
+        self.attention = nn.MultiheadAttention(256, 8)
 
 
     
@@ -169,11 +171,22 @@ class Generator(torch.nn.Module):
         enc2 = self.conv2(enc1, 64)
         enc3 = self.conv3(enc2, 128)
         enc4 = self.conv4(enc3, 256)
-
-        # self.embed = torch.Tensor(enc4.size()).copy_(enc4)
-        self.embed = enc4
-        self.embed2 = self.ce_layer(self.embed)
+   
+        self.embed2 = torch.zeros((1, 21)).to(torch.device("cuda"))
+        # self.embed = enc4   # self.embed = torch.Tensor(enc4.size()).copy_(enc4)
+        # self.embed2 = self.ce_layer(self.embed)
         
+        # # attention
+        # x = enc4
+        # # 将输入张量x重塑为符合注意力机制输入格式的形状
+        # batch_size, channels, height, width = x.size()
+        # # 将通道维度视为特征维度，而将高度和宽度维度视为序列维度
+        # x = x.view(batch_size, channels, -1).permute(2, 0, 1)  # [seq_len, batch_size, embed_dim]
+        # # 注意：MultiheadAttention的输入格式是 (seq_len, batch_size, embed_dim)
+        # output, _ = self.attention(x, x, x)
+        # # 将输出张量重塑回原始形状
+        # output = output.permute(1, 2, 0).view(batch_size, channels, height, width)
+        # enc4 = output
 
         # Decoder with skip-connections
         dec0 = self.deconv0(enc4, enc3)
@@ -186,7 +199,7 @@ class Generator(torch.nn.Module):
         # out = self.out_lambda(out)
         # out = self.out_activ(out)
 
-        return out
+        return out, self.embed2
 
     def normal_weight_init(self, mean=0.0, std=0.02):
         for m in self.children():
@@ -288,11 +301,24 @@ class Net(core.Classifier):
         self.save_hyperparameters()
         self.net = Generator()
     
-    def loss(self, Y_hat, Y, averaged=True):
+    def training_step(self, batch):
+        Y_hat, embed2_hat = self(*batch[:-1])
+        Y = batch[:-1][0]
+        embed = batch[-1]
+        embed = torch.reshape(embed, (-1,))
+        l1, l2, l_a = self.loss(Y, Y_hat, embed2_hat, embed)
+        self.plot('loss', l1, train=True)
+        self.plot('loss_2', l2, train=True)
+        self.plot('loss_all', l_a, train=True)
+        return l_a
+    
+    def loss(self, Y, Y_hat, embed2_hat, embed, averaged=True, l2_weight=0):
         fn = nn.MSELoss()
-        
-        loss2 = F.cross_entropy(self.net.embed2, Y, reduction='mean')
-        return fn(Y_hat, Y), loss2
+        loss1 = fn(Y_hat, Y)    # MSE Loss
+        embed = embed.type(torch.long)
+        loss2 = F.cross_entropy(embed2_hat, embed, reduction='mean')    # BCE Loss
+        loss_all = loss1 * (1-l2_weight) + loss2 * (l2_weight)
+        return loss1, loss2,loss_all
     
     def BCE_loss(self, Y_hat, Y, averaged=True):
         """Defined in :numref:`sec_softmax_concise`"""
@@ -302,12 +328,53 @@ class Net(core.Classifier):
         return F.cross_entropy(
             Y_hat, Y, reduction='mean' if averaged else 'none')
     
+    def accuracy(self, Y_hat, Y, averaged=True):
+        """Compute the number of correct predictions.
+    
+        Defined in :numref:`sec_classification`"""
+        astype = lambda x, *args, **kwargs: x.type(*args, **kwargs)
+        reduce_mean = lambda x, *args, **kwargs: x.mean(*args, **kwargs)
+        reshape = lambda x, *args, **kwargs: x.reshape(*args, **kwargs)
+        argmax = lambda x, *args, **kwargs: x.argmax(*args, **kwargs)
+        float32 = torch.float32
+
+        Y_hat = reshape(Y_hat, (-1, Y_hat.shape[-1]))
+        preds = astype(argmax(Y_hat, axis=1), Y.dtype)
+        compare = astype(preds == reshape(Y, -1), float32)
+        return reduce_mean(compare) if averaged else compare
+
     def validation_step(self, batch):
-        Y_hat = self(*batch[:-1])
-        Y = batch[-1]
+        Y_hat, embed2_hat = self(*batch[:-1])
+        Y = batch[:-1][0]
+        embed = batch[-1]
+        embed = torch.reshape(embed, (-1,))
+
+        # save Y_hat
+        # 将张量值归一化到0到255之间
+        Y_hat_2 = Y_hat.to(torch.device("cpu"))
+        # Y_hat_2 = (Y_hat_2 - Y_hat_2.min()) / (Y_hat_2.max() - Y_hat_2.min()) * 255
+        # 将张量转换为NumPy数组，并将其转换为整数类型
+        image_np = Y_hat_2.byte().squeeze(0).squeeze(0).numpy()
+        # 将图像保存到文件
+        cv2.imwrite("/home/yingmuzhi/SpecML2/data/output_image.png", image_np)
+
+        # 输出类别
+        category = torch.argmax(embed2_hat, dim=1)
+        print("pred category is {}, real category is {}".format(category, embed.item()))
+
+        acc_value = self.accuracy(embed2_hat, embed)
+        l1, l2, l_a = self.loss(Y, Y_hat, embed2_hat, embed)
+        self.plot('loss_mse', l1, train=False)
+        self.plot('loss_bce', l2, train=False)
+        self.plot('loss_all', l_a, train=False)
         
-        loss_value = self.BCE_loss(Y_hat, Y)
-        self.metrics_loss.append(loss_value)
+        self.metrics_loss.append(l2.to(torch.device('cpu')).detach().numpy())
+        
+        self.metrics_accuracy.append(acc_value.to(torch.device("cpu")).detach().numpy())
+
+        return l_a
+
+        
 
     
 class Trainer_G(core.Trainer_GPU):
@@ -315,7 +382,7 @@ class Trainer_G(core.Trainer_GPU):
         return super().prepare_batch(batch)
 
 def main():
-    model = Net(lr=0.1)
+    model = Net(lr=0.001)
     trainer = core.Trainer_GPU(max_epochs=10, num_gpus=1)
     data = dataset_utils_256.DataM(batch_size=1, resize=(256, 256), train_data_csv_path="/home/yingmuzhi/SpecML2/data/train_256/1_data_mapping.csv", val_data_csv_path="/home/yingmuzhi/SpecML2/data/val_256/1_data_mapping.csv")
     model.apply_init([next(iter(data.get_dataloader(True)))[0]], core.init_cnn)
